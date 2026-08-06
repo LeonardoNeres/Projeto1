@@ -1,68 +1,96 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link'; // Importante para navegação rápida!
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
-export default function Home() {
-  const [contador, setContador] = useState(0);
+interface Produto {
+  id: number;
+  nome: string;
+  descricao: string;
+  preco: string | number;
+  categoria: string;
+  imagem_url: string;
+}
+
+export default function CardapioPage() {
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/produtos')
+      .then((res) => res.json())
+      .then((dados) => {
+        setProdutos(dados);
+        setLoading(false);
+      })
+      .catch((erro) => {
+        console.error('Erro ao carregar cardápio:', erro);
+        setLoading(false);
+      });
+  }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-slate-900 text-white font-sans gap-6">
-      <div className="p-8 bg-slate-800 rounded-2xl shadow-xl border border-slate-700 text-center max-w-sm w-full">
-        <h1 className="text-2xl font-bold text-sky-400 mb-2">
-          Contador Next.js
-        </h1>
-        <p className="text-slate-400 text-sm mb-6">
-          Testando estado com <code className="text-emerald-400">useState</code>
-        </p>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif' }}>
+      {/* Header do Restaurante */}
+      <header style={{ padding: '2rem 1rem', textAlign: 'center', borderBottom: '1px solid #1e293b', backgroundColor: '#1e293b' }}>
+        <h1 style={{ fontSize: '2.5rem', color: '#f59e0b', margin: 0 }}>🍔 Sabor & Arte Bistro</h1>
+        <p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Cardápio Digital conectado ao PostgreSQL na Nuvem</p>
+  <Link href="/admin" style={{ color: '#f59e0b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 'bold' }}>
+    ➕ Cadastrar Novo Prato
+  </Link>
+      </header>
 
-        <div className="text-6xl font-black text-white mb-6">
-          {contador}
-        </div>
+      {/* Conteúdo Principal */}
+      <main style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
+        <h2 style={{ fontSize: '1.8rem', borderBottom: '2px solid #f59e0b', paddingBottom: '0.5rem', marginBottom: '2rem' }}>
+          Nossos Pratos e Bebidas
+        </h2>
 
-        <div className="flex justify-center gap-3">
-          <button
-            onClick={() => setContador(contador - 1)}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 font-bold rounded-lg transition-colors active:scale-95"
-          >
-            - 1
-          </button>
-
-          <button
-            onClick={() => setContador(0)}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-lg transition-colors active:scale-95"
-          >
-            Zerar
-          </button>
-
-          <button
-            onClick={() => setContador(contador + 1)}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 font-bold rounded-lg transition-colors active:scale-95"
-          >
-            + 1
-          </button>
-        </div>
-      </div>
-
-      {/* Botão para navegar para a página /sobre */}
-      <Link 
-        href="/sobre"
-        className="text-slate-400 hover:text-sky-400 text-sm underline transition-colors"
-      >
-        Ir para a página Sobre →
-      </Link>
-      <Link 
-  href="/posts"
-  className="text-slate-400 hover:text-sky-400 text-sm underline transition-colors"
->
-  Ver Posts da API →
-</Link>
-<Link 
-  href="/produtos"
-  className="text-slate-400 hover:text-sky-400 text-sm underline transition-colors"
->
-  Ver Produtos da Minha API (Node.js) →
-</Link>
-    </main>
+        {loading ? (
+          <p style={{ textAlign: 'center', color: '#94a3b8' }}>Carregando delícias do banco de dados...</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            {produtos.map((prato) => (
+              <div 
+                key={prato.id} 
+                style={{ 
+                  backgroundColor: '#1e293b', 
+                  borderRadius: '12px', 
+                  overflow: 'hidden', 
+                  border: '1px solid #334155',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                {prato.imagem_url && (
+                  <img 
+                    src={prato.imagem_url} 
+                    alt={prato.nome} 
+                    style={{ width: '100%', height: '180px', objectFit: 'cover' }} 
+                  />
+                )}
+                <div style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                  <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#f59e0b', fontWeight: 'bold' }}>
+                    {prato.categoria}
+                  </span>
+                  <h3 style={{ fontSize: '1.3rem', margin: '0.4rem 0', color: '#ffffff' }}>{prato.nome}</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.9rem', flexGrow: 1, lineHeight: '1.4' }}>
+                    {prato.descricao}
+                  </p>
+                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#4ade80' }}>
+                      R$ {Number(prato.preco).toFixed(2)}
+                    </span>
+                    <button style={{ backgroundColor: '#f59e0b', color: '#000', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                      Pedir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
