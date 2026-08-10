@@ -25,6 +25,9 @@ export default function AdminPage() {
   const [preco, setPreco] = useState('');
   const [categoria, setCategoria] = useState('Lanches');
   const [imagemUrl, setImagemUrl] = useState('');
+  const [enviandoImagem, setEnviandoImagem] = useState(false);
+  const [enviandoImagemEdicao, setEnviandoImagemEdicao] = useState(false);
+
   const [modalAberto, setModalAberto] = useState(false);
   const [idParaDeletar, setIdParaDeletar] = useState<number | null>(null);  
   const [produtoEditando, setProdutoEditando] = useState<any | null>(null);
@@ -33,7 +36,6 @@ export default function AdminPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(false);
   const [carregandoLista, setCarregandoLista] = useState(true);
-  const [mensagem, setMensagem] = useState('');
 
   // 🔑 1. VERIFICAÇÃO DE SEGURANÇA VIA COOKIE HTTPONLY
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function AdminPage() {
       try {
         const res = await fetch('http://localhost:5000/api/auth/check', {
           method: 'GET',
-          credentials: 'include', // Envia o cookie HttpOnly para o servidor validar
+          credentials: 'include',
         });
 
         if (res.ok) {
@@ -78,16 +80,63 @@ export default function AdminPage() {
     }
   }, [autorizado]);
 
-  // 🚪 Função de Logout
-  const handleLogout = async () => {
+  // 📸 FUNÇÃO DE UPLOAD DE ARQUIVO (Cadastro)
+  const handleUploadArquivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setEnviandoImagem(true);
+    const formData = new FormData();
+    formData.append('imagem', file);
+
     try {
-      await fetch('http://localhost:5000/api/logout', {
+      const res = await fetch('http://localhost:5000/api/upload', {
         method: 'POST',
         credentials: 'include',
+        body: formData,
       });
-      window.location.href = '/login';
-    } catch (erro) {
-      toast.error('Erro ao encerrar sessão.');
+
+      const data = await res.json();
+      if (res.ok) {
+        setImagemUrl(data.url);
+        toast.success('📸 Imagem enviada com sucesso!');
+      } else {
+        toast.error('Erro ao enviar imagem.');
+      }
+    } catch (err) {
+      toast.error('Erro de conexão ao enviar imagem.');
+    } finally {
+      setEnviandoImagem(false);
+    }
+  };
+
+  // 📸 FUNÇÃO DE UPLOAD DE ARQUIVO (Edição)
+  const handleUploadArquivoEdicao = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !produtoEditando) return;
+
+    setEnviandoImagemEdicao(true);
+    const formData = new FormData();
+    formData.append('imagem', file);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setProdutoEditando({ ...produtoEditando, imagem_url: data.url });
+        toast.success('📸 Imagem atualizada!');
+      } else {
+        toast.error('Erro ao enviar imagem.');
+      }
+    } catch (err) {
+      toast.error('Erro de conexão ao enviar imagem.');
+    } finally {
+      setEnviandoImagemEdicao(false);
     }
   };
 
@@ -95,13 +144,12 @@ export default function AdminPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMensagem('');
 
     try {
       const resposta = await fetch('http://localhost:5000/api/produtos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 Exige cookie HttpOnly
+        credentials: 'include',
         body: JSON.stringify({
           nome,
           descricao,
@@ -119,7 +167,7 @@ export default function AdminPage() {
         setImagemUrl('');
         carregarProdutos();
       } else {
-        toast.error('❌ Erro ao cadastrar prato. Não autorizado.');
+        toast.error('❌ Erro ao cadastrar prato.');
       }
     } catch (erro) {
       console.error(erro);
@@ -142,7 +190,7 @@ export default function AdminPage() {
     try {
       const resposta = await fetch(`http://localhost:5000/api/produtos/${idParaDeletar}`, {
         method: 'DELETE',
-        credentials: 'include', // 👈 Exige cookie HttpOnly
+        credentials: 'include',
       });
 
       if (resposta.ok) {
@@ -169,7 +217,7 @@ export default function AdminPage() {
       const resposta = await fetch(`http://localhost:5000/api/produtos/${produtoEditando.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 Exige cookie HttpOnly
+        credentials: 'include',
         body: JSON.stringify(produtoEditando),
       });
 
@@ -192,7 +240,7 @@ export default function AdminPage() {
       const resposta = await fetch(`http://localhost:5000/api/produtos/${id}/disponibilidade`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 Exige cookie HttpOnly
+        credentials: 'include',
         body: JSON.stringify({ disponivel: !disponivelAtual }),
       });
 
@@ -207,7 +255,6 @@ export default function AdminPage() {
     }
   };
 
-  // Enquanto não confirma a validação do Cookie no backend, não renderiza a tela
   if (!autorizado) {
     return null;
   }
@@ -216,38 +263,36 @@ export default function AdminPage() {
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif', paddingBottom: '3rem' }}>
       
       {/* Topo / Header do Admin */}
-<header style={{ backgroundColor: '#1e293b', borderBottom: '1px solid #334155', padding: '1rem 1.5rem' }}>
-  <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <h1 style={{ fontSize: '1.3rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>
-      ⚙️ Painel de Gestão - DevBurger
-    </h1>
+      <header style={{ backgroundColor: '#1e293b', borderBottom: '1px solid #334155', padding: '1rem 1.5rem' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: '1.3rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>
+            ⚙️ Painel de Gestão - DevBurger
+          </h1>
 
-<button
-  type="button"
-  onClick={async () => {
-    // 1. Destrói o cookie no servidor
-    await fetch('http://localhost:5000/api/logout', {
-      method: 'POST',
-      credentials: 'include',
-    });
-    // 2. Voltar para a Home
-    window.location.href = '/';
-  }}
-  style={{
-    backgroundColor: '#38bdf8',
-    color: '#0f172a',
-    border: 'none',
-    padding: '0.6rem 1.2rem',
-    borderRadius: '6px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    fontSize: '0.9rem'
-  }}
->
-  🏠 Cardápio
-</button>
-  </div>
-</header>
+          <button
+            type="button"
+            onClick={async () => {
+              await fetch('http://localhost:5000/api/logout', {
+                method: 'POST',
+                credentials: 'include',
+              });
+              window.location.href = '/';
+            }}
+            style={{
+              backgroundColor: '#38bdf8',
+              color: '#0f172a',
+              border: 'none',
+              padding: '0.6rem 1.2rem',
+              borderRadius: '6px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            🏠 Cardápio
+          </button>
+        </div>
+      </header>
 
       <main style={{ maxWidth: '1100px', margin: '2rem auto', padding: '0 1rem', display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
         
@@ -298,15 +343,48 @@ export default function AdminPage() {
               />
             </div>
 
+            {/* SEÇÃO DE IMAGEM (UPLOAD OU URL) */}
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.3rem', fontWeight: 'bold' }}>URL da Imagem</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.3rem', fontWeight: 'bold' }}>
+                Imagem do Prato (Enviar Arquivo ou Colar Link)
+              </label>
+              
+              {/* Selecionar Arquivo do Dispositivo */}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleUploadArquivo}
+                disabled={enviandoImagem}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid #475569',
+                  backgroundColor: '#0f172a',
+                  color: '#fff',
+                  boxSizing: 'border-box',
+                  marginBottom: '0.5rem'
+                }}
+              />
+
+              {enviandoImagem && <p style={{ color: '#f59e0b', fontSize: '0.8rem', margin: '0 0 0.5rem 0' }}>⏳ Enviando imagem...</p>}
+
+              {/* Input manual de URL como alternativa */}
               <input
                 type="url"
-                placeholder="https://images.unsplash.com/..."
+                placeholder="Ou cole o link direto da imagem..."
                 value={imagemUrl}
                 onChange={(e) => setImagemUrl(e.target.value)}
                 style={{ width: '100%', padding: '0.7rem', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
               />
+
+              {/* Miniatura de Prévia */}
+              {imagemUrl && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <img src={imagemUrl} alt="Preview" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #38bdf8' }} />
+                  <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold' }}>✓ Imagem carregada</span>
+                </div>
+              )}
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
@@ -322,16 +400,16 @@ export default function AdminPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || enviandoImagem}
               style={{
                 gridColumn: 'span 2',
-                backgroundColor: loading ? '#475569' : '#f59e0b',
+                backgroundColor: (loading || enviandoImagem) ? '#475569' : '#f59e0b',
                 color: '#000',
                 border: 'none',
                 padding: '0.8rem',
                 borderRadius: '6px',
                 fontWeight: 'bold',
-                cursor: loading ? 'not-allowed' : 'pointer',
+                cursor: (loading || enviandoImagem) ? 'not-allowed' : 'pointer',
                 fontSize: '1rem',
                 marginTop: '0.5rem'
               }}
@@ -368,16 +446,25 @@ export default function AdminPage() {
                     gap: '1rem'
                   }}
                 >
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      {prod.categoria}
-                    </span>
-                    <h3 style={{ margin: '0.2rem 0', fontSize: '1.05rem', color: '#f8fafc' }}>
-                      {prod.nome}
-                    </h3>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#38bdf8' }}>
-                      R$ {Number(prod.preco).toFixed(2)}
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {prod.imagem_url && (
+                      <img
+                        src={prod.imagem_url}
+                        alt={prod.nome}
+                        style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #475569' }}
+                      />
+                    )}
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                        {prod.categoria}
+                      </span>
+                      <h3 style={{ margin: '0.2rem 0', fontSize: '1.05rem', color: '#f8fafc' }}>
+                        {prod.nome}
+                      </h3>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#38bdf8' }}>
+                        R$ {Number(prod.preco).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
@@ -430,7 +517,7 @@ export default function AdminPage() {
       {/* MODAL DE EDIÇÃO */}
       {produtoEditando && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '1.5rem', maxWidth: '500px', width: '90%' }}>
+          <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '1.5rem', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 1rem 0', color: '#f8fafc', textAlign: 'center' }}>✏️ Editar Prato</h3>
             <form onSubmit={handleSalvarEdicao} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
               <div>
@@ -445,17 +532,30 @@ export default function AdminPage() {
                 <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Preço (R$):</label>
                 <input type="number" step="0.01" value={produtoEditando.preco} onChange={(e) => setProdutoEditando({ ...produtoEditando, preco: e.target.value })} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
               </div>
+
+              {/* Upload na Edição */}
               <div>
-                <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>URL da Imagem:</label>
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'block', marginBottom: '0.3rem' }}>Trocar Imagem (Arquivo):</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadArquivoEdicao}
+                  disabled={enviandoImagemEdicao}
+                  style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box', marginBottom: '0.4rem' }}
+                />
+                {enviandoImagemEdicao && <p style={{ color: '#f59e0b', fontSize: '0.75rem', margin: 0 }}>⏳ Enviando nova imagem...</p>}
+                
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'block', marginTop: '0.3rem' }}>Ou URL da Imagem:</label>
                 <input type="text" value={produtoEditando.imagem_url || ''} onChange={(e) => setProdutoEditando({ ...produtoEditando, imagem_url: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
               </div>
+
               <div>
                 <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Descrição:</label>
                 <textarea value={produtoEditando.descricao || ''} onChange={(e) => setProdutoEditando({ ...produtoEditando, descricao: e.target.value })} rows={3} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
               </div>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setProdutoEditando(null)} style={{ backgroundColor: '#475569', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
-                <button type="submit" style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Alterações</button>
+                <button type="submit" disabled={enviandoImagemEdicao} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Alterações</button>
               </div>
             </form>
           </div>
