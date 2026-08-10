@@ -76,6 +76,36 @@ app.delete('/api/produtos/:id', async (req, res) => {
   }
 });
 
+// 4. PUT - Atualizar um produto pelo ID
+app.put('/api/produtos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nome, descricao, preco, categoria, imagem_url } = req.body;
+
+  if (!nome || !preco || !categoria) {
+    return res.status(400).json({ error: 'Nome, preço e categoria são obrigatórios.' });
+  }
+
+  try {
+    const query = `
+      UPDATE produtos
+      SET nome = $1, descricao = $2, preco = $3, categoria = $4, imagem_url = $5
+      WHERE id = $6
+      RETURNING *;
+    `;
+    const valores = [nome, descricao || '', preco, categoria, imagem_url || '', id];
+    const resultado = await pool.query(query, valores);
+
+    if (resultado.rowCount === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+
+    res.status(200).json(resultado.rows[0]);
+  } catch (erro) {
+    console.error('Erro ao atualizar produto:', erro);
+    res.status(500).json({ error: 'Erro ao atualizar produto' });
+  }
+});
+
 // Inicialização do Servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta http://localhost:${PORT}`);

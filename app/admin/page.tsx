@@ -23,7 +23,8 @@ export default function AdminPage() {
   const [categoria, setCategoria] = useState('Lanches');
   const [imagemUrl, setImagemUrl] = useState('');
   const [modalAberto, setModalAberto] = useState(false);
-const [idParaDeletar, setIdParaDeletar] = useState<number | null>(null);  
+  const [idParaDeletar, setIdParaDeletar] = useState<number | null>(null);  
+  const [produtoEditando, setProdutoEditando] = useState<any | null>(null);
 
   // Estados de Lista e Feedback
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -118,6 +119,30 @@ const confirmarDeletar = async () => {
     setIdParaDeletar(null);
   }
 };
+const handleSalvarEdicao = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!produtoEditando) return;
+
+  try {
+    const resposta = await fetch(`http://localhost:5000/api/produtos/${produtoEditando.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(produtoEditando),
+    });
+
+    if (resposta.ok) {
+      toast.success('Prato atualizado com sucesso!');
+      setProdutoEditando(null); // Fecha o modal
+      carregarProdutos(); // Recarrega a lista
+    } else {
+      toast.error('Erro ao atualizar o prato.');
+    }
+  } catch (erro) {
+    console.error('Erro ao editar:', erro);
+    toast.error('Erro de conexão ao atualizar.');
+  }
+};
+
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif', paddingBottom: '3rem' }}>
@@ -298,6 +323,22 @@ const confirmarDeletar = async () => {
                   >
                     🗑️ Excluir
                   </button>
+                  <button
+   type="button"
+   onClick={() => setProdutoEditando(prod)}
+   style={{
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    border: 'none',
+    padding: '0.4rem 0.8rem',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    marginRight: '0.5rem'
+    }}
+   >
+     ✏️ Editar
+    </button>
                 </div>
               ))}
             </div>
@@ -370,6 +411,110 @@ const confirmarDeletar = async () => {
           Sim, excluir
         </button>
       </div>
+    </div>
+  </div>
+
+  
+)}
+
+{/* Modal de Edição de Prato */}
+{produtoEditando && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  }}>
+    <div style={{
+      backgroundColor: '#1e293b',
+      border: '1px solid #334155',
+      borderRadius: '12px',
+      padding: '1.5rem',
+      maxWidth: '500px',
+      width: '90%',
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+    }}>
+      <h3 style={{ margin: '0 0 1rem 0', color: '#f8fafc', fontSize: '1.25rem', textAlign: 'center' }}>
+        ✏️ Editar Prato
+      </h3>
+
+      <form onSubmit={handleSalvarEdicao} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+        <div>
+          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nome:</label>
+          <input
+            type="text"
+            value={produtoEditando.nome}
+            onChange={(e) => setProdutoEditando({ ...produtoEditando, nome: e.target.value })}
+            required
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Categoria:</label>
+          <input
+            type="text"
+            value={produtoEditando.categoria}
+            onChange={(e) => setProdutoEditando({ ...produtoEditando, categoria: e.target.value })}
+            required
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Preço (R$):</label>
+          <input
+            type="number"
+            step="0.01"
+            value={produtoEditando.preco}
+            onChange={(e) => setProdutoEditando({ ...produtoEditando, preco: e.target.value })}
+            required
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>URL da Imagem:</label>
+          <input
+            type="text"
+            value={produtoEditando.imagem_url || ''}
+            onChange={(e) => setProdutoEditando({ ...produtoEditando, imagem_url: e.target.value })}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Descrição:</label>
+          <textarea
+            value={produtoEditando.descricao || ''}
+            onChange={(e) => setProdutoEditando({ ...produtoEditando, descricao: e.target.value })}
+            rows={3}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+          <button
+            type="button"
+            onClick={() => setProdutoEditando(null)}
+            style={{ backgroundColor: '#475569', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Salvar Alterações
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 )}
