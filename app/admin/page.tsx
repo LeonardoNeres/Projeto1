@@ -22,6 +22,8 @@ export default function AdminPage() {
   const [preco, setPreco] = useState('');
   const [categoria, setCategoria] = useState('Lanches');
   const [imagemUrl, setImagemUrl] = useState('');
+  const [modalAberto, setModalAberto] = useState(false);
+const [idParaDeletar, setIdParaDeletar] = useState<number | null>(null);  
 
   // Estados de Lista e Feedback
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -87,25 +89,35 @@ export default function AdminPage() {
     }
   };
 
-  // 3. Deletar Prato (DELETE)
-  const handleDeletar = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir este prato do cardápio?')) return;
+ // 1. Função que abre o modal guardando o ID do prato
+const abrirModalDeletar = (id: number) => {
+  setIdParaDeletar(id);
+  setModalAberto(true);
+};
 
-    try {
-      const resposta = await fetch(`http://localhost:5000/api/produtos/${id}`, {
-        method: 'DELETE',
-      });
+// 2. Função que realmente deleta no banco quando o usuário clica em "Sim, excluir"
+const confirmarDeletar = async () => {
+  if (!idParaDeletar) return;
 
-if (resposta.ok) {
-  toast.success('Prato excluído com sucesso!');
-  carregarProdutos();
-} else {
-  toast.error('Erro ao excluir o prato.');
-}
-    } catch (erro) {
-      console.error('Erro ao deletar:', erro);
+  try {
+    const resposta = await fetch(`http://localhost:5000/api/produtos/${idParaDeletar}`, {
+      method: 'DELETE',
+    });
+
+    if (resposta.ok) {
+      toast.success('Prato excluído com sucesso!');
+      carregarProdutos();
+    } else {
+      toast.error('Erro ao excluir o prato.');
     }
-  };
+  } catch (erro) {
+    console.error('Erro ao deletar:', erro);
+    toast.error('Erro de conexão ao deletar.');
+  } finally {
+    setModalAberto(false);
+    setIdParaDeletar(null);
+  }
+};
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif', paddingBottom: '3rem' }}>
@@ -272,7 +284,7 @@ if (resposta.ok) {
 
                   <button
                     type="button"
-                    onClick={() => handleDeletar(prod.id)}
+                    onClick={() => abrirModalDeletar(prod.id)}
                     style={{
                       backgroundColor: '#ef4444',
                       color: '#fff',
@@ -293,6 +305,74 @@ if (resposta.ok) {
         </section>
 
       </main>
+
+
+      {/* Modal de Confirmação de Exclusão */}
+{modalAberto && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  }}>
+    <div style={{
+      backgroundColor: '#1e293b',
+      border: '1px solid #334155',
+      borderRadius: '12px',
+      padding: '1.5rem',
+      maxWidth: '400px',
+      width: '90%',
+      textAlign: 'center',
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+    }}>
+      <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.25rem' }}>
+        Confirmar Exclusão
+      </h3>
+      <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
+        Tem certeza que deseja excluir este prato? Esta ação não poderá ser desfeita.
+      </p>
+      
+      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setModalAberto(false)}
+          style={{
+            backgroundColor: '#475569',
+            color: '#fff',
+            border: 'none',
+            padding: '0.6rem 1.2rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={confirmarDeletar}
+          style={{
+            backgroundColor: '#ef4444',
+            color: '#fff',
+            border: 'none',
+            padding: '0.6rem 1.2rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Sim, excluir
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
