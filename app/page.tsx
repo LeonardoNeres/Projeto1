@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+
 interface Produto {
   id: number;
   nome: string;
@@ -18,6 +19,12 @@ interface ItemCarrinho extends Produto {
 }
 
 export default function CardapioPublicoPage() {
+
+  useEffect(() => {
+  // Garante que o login do admin seja resetado ao estar na home
+  sessionStorage.removeItem('admin_logado');
+}, []);
+
   const router = useRouter();
 
   // Estados dos Produtos e Filtros
@@ -46,8 +53,9 @@ export default function CardapioPublicoPage() {
         const res = await fetch('http://localhost:5000/api/produtos');
         if (res.ok) {
           const dados = await res.json();
-          setProdutos(dados);
-        }
+// Exibe apenas os produtos que NÃO estão pausados (disponivel !== false)
+const produtosAtivos = dados.filter((prod: any) => prod.disponivel !== false);
+setProdutos(produtosAtivos);        }
       } catch (erro) {
         console.error('Erro ao buscar produtos da API:', erro);
       } finally {

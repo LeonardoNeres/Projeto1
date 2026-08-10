@@ -16,6 +16,9 @@ interface Produto {
 export default function AdminPage() {
   const router = useRouter();
 
+  // Trava de Autorização
+  const [autorizado, setAutorizado] = useState(false);
+
   // Estados do Formulário
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -32,7 +35,29 @@ export default function AdminPage() {
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [mensagem, setMensagem] = useState('');
 
-  // 1. Carregar produtos do banco de dados
+  // 🔑 1. VERIFICAÇÃO DE SEGURANÇA VIA COOKIE HTTPONLY
+  useEffect(() => {
+    const checarAutenticacao = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/auth/check', {
+          method: 'GET',
+          credentials: 'include', // Envia o cookie HttpOnly para o servidor validar
+        });
+
+        if (res.ok) {
+          setAutorizado(true);
+        } else {
+          window.location.href = '/login';
+        }
+      } catch (erro) {
+        window.location.href = '/login';
+      }
+    };
+
+    checarAutenticacao();
+  }, []);
+
+  // 2. Carregar produtos do banco de dados (Apenas se autorizado)
   const carregarProdutos = async () => {
     try {
       const res = await fetch('http://localhost:5000/api/produtos');
@@ -48,10 +73,25 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    carregarProdutos();
-  }, []);
+    if (autorizado) {
+      carregarProdutos();
+    }
+  }, [autorizado]);
 
-  // 2. Cadastrar Novo Prato (POST)
+  // 🚪 Função de Logout
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:5000/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      window.location.href = '/login';
+    } catch (erro) {
+      toast.error('Erro ao encerrar sessão.');
+    }
+  };
+
+  // 3. Cadastrar Novo Prato (POST Protegido)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -61,6 +101,7 @@ export default function AdminPage() {
       const resposta = await fetch('http://localhost:5000/api/produtos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 Exige cookie HttpOnly
         body: JSON.stringify({
           nome,
           descricao,
@@ -72,15 +113,13 @@ export default function AdminPage() {
 
       if (resposta.ok) {
         toast.success('✅ Prato cadastrado com sucesso!');
-        // Limpar os campos
         setNome('');
         setDescricao('');
         setPreco('');
         setImagemUrl('');
-        // Recarregar a lista atualizada
         carregarProdutos();
       } else {
-        toast.error('❌ Erro ao cadastrar prato. Verifique os dados.');
+        toast.error('❌ Erro ao cadastrar prato. Não autorizado.');
       }
     } catch (erro) {
       console.error(erro);
@@ -90,87 +129,125 @@ export default function AdminPage() {
     }
   };
 
- // 1. Função que abre o modal guardando o ID do prato
-const abrirModalDeletar = (id: number) => {
-  setIdParaDeletar(id);
-  setModalAberto(true);
-};
+  // Modal Deletar
+  const abrirModalDeletar = (id: number) => {
+    setIdParaDeletar(id);
+    setModalAberto(true);
+  };
 
-// 2. Função que realmente deleta no banco quando o usuário clica em "Sim, excluir"
-const confirmarDeletar = async () => {
-  if (!idParaDeletar) return;
+  // 4. Confirmar Exclusão (DELETE Protegido)
+  const confirmarDeletar = async () => {
+    if (!idParaDeletar) return;
 
-  try {
-    const resposta = await fetch(`http://localhost:5000/api/produtos/${idParaDeletar}`, {
-      method: 'DELETE',
-    });
+    try {
+      const resposta = await fetch(`http://localhost:5000/api/produtos/${idParaDeletar}`, {
+        method: 'DELETE',
+        credentials: 'include', // 👈 Exige cookie HttpOnly
+      });
 
-    if (resposta.ok) {
-      toast.success('Prato excluído com sucesso!');
-      carregarProdutos();
-    } else {
-      toast.error('Erro ao excluir o prato.');
+      if (resposta.ok) {
+        toast.success('Prato excluído com sucesso!');
+        carregarProdutos();
+      } else {
+        toast.error('Erro ao excluir o prato.');
+      }
+    } catch (erro) {
+      console.error('Erro ao deletar:', erro);
+      toast.error('Erro de conexão ao deletar.');
+    } finally {
+      setModalAberto(false);
+      setIdParaDeletar(null);
     }
-  } catch (erro) {
-    console.error('Erro ao deletar:', erro);
-    toast.error('Erro de conexão ao deletar.');
-  } finally {
-    setModalAberto(false);
-    setIdParaDeletar(null);
-  }
-};
-const handleSalvarEdicao = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!produtoEditando) return;
+  };
 
-  try {
-    const resposta = await fetch(`http://localhost:5000/api/produtos/${produtoEditando.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(produtoEditando),
-    });
+  // 5. Salvar Edição (PUT Protegido)
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!produtoEditando) return;
 
-    if (resposta.ok) {
-      toast.success('Prato atualizado com sucesso!');
-      setProdutoEditando(null); // Fecha o modal
-      carregarProdutos(); // Recarrega a lista
-    } else {
-      toast.error('Erro ao atualizar o prato.');
+    try {
+      const resposta = await fetch(`http://localhost:5000/api/produtos/${produtoEditando.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 Exige cookie HttpOnly
+        body: JSON.stringify(produtoEditando),
+      });
+
+      if (resposta.ok) {
+        toast.success('Prato atualizado com sucesso!');
+        setProdutoEditando(null);
+        carregarProdutos();
+      } else {
+        toast.error('Erro ao atualizar o prato.');
+      }
+    } catch (erro) {
+      console.error('Erro ao editar:', erro);
+      toast.error('Erro de conexão ao atualizar.');
     }
-  } catch (erro) {
-    console.error('Erro ao editar:', erro);
-    toast.error('Erro de conexão ao atualizar.');
-  }
-};
+  };
 
+  // 6. Alternar Disponibilidade (PATCH Protegido)
+  const alternarDisponibilidade = async (id: number, disponivelAtual: boolean) => {
+    try {
+      const resposta = await fetch(`http://localhost:5000/api/produtos/${id}/disponibilidade`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 Exige cookie HttpOnly
+        body: JSON.stringify({ disponivel: !disponivelAtual }),
+      });
+
+      if (resposta.ok) {
+        toast.success(!disponivelAtual ? 'Prato ativado!' : 'Prato pausado!');
+        carregarProdutos();
+      } else {
+        toast.error('Erro ao mudar status.');
+      }
+    } catch (erro) {
+      toast.error('Erro de conexão.');
+    }
+  };
+
+  // Enquanto não confirma a validação do Cookie no backend, não renderiza a tela
+  if (!autorizado) {
+    return null;
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif', paddingBottom: '3rem' }}>
       
       {/* Topo / Header do Admin */}
-      <header style={{ backgroundColor: '#1e293b', borderBottom: '1px solid #334155', padding: '1rem 1.5rem' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '1.3rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>
-            ⚙️ Painel de Gestão - DevBurger
-          </h1>
-          <button
-            type="button"
-            onClick={() => router.push('/')}
-            style={{
-              backgroundColor: '#38bdf8',
-              color: '#0f172a',
-              border: 'none',
-              padding: '0.6rem 1.2rem',
-              borderRadius: '6px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            🏠 Ver Cardápio do Cliente
-          </button>
-        </div>
-      </header>
+<header style={{ backgroundColor: '#1e293b', borderBottom: '1px solid #334155', padding: '1rem 1.5rem' }}>
+  <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <h1 style={{ fontSize: '1.3rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>
+      ⚙️ Painel de Gestão - DevBurger
+    </h1>
+
+<button
+  type="button"
+  onClick={async () => {
+    // 1. Destrói o cookie no servidor
+    await fetch('http://localhost:5000/api/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    // 2. Voltar para a Home
+    window.location.href = '/';
+  }}
+  style={{
+    backgroundColor: '#38bdf8',
+    color: '#0f172a',
+    border: 'none',
+    padding: '0.6rem 1.2rem',
+    borderRadius: '6px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    fontSize: '0.9rem'
+  }}
+>
+  🏠 Cardápio
+</button>
+  </div>
+</header>
 
       <main style={{ maxWidth: '1100px', margin: '2rem auto', padding: '0 1rem', display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
         
@@ -180,14 +257,7 @@ const handleSalvarEdicao = async (e: React.FormEvent) => {
             ➕ Cadastrar Novo Prato
           </h2>
 
-          {mensagem && (
-            <div style={{ padding: '0.8rem', marginBottom: '1rem', borderRadius: '6px', backgroundColor: mensagem.includes('✅') || mensagem.includes('🗑️') ? '#166534' : '#991b1b', color: '#fff' }}>
-              {mensagem}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-            
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.3rem', fontWeight: 'bold' }}>Nome do Prato *</label>
               <input
@@ -268,11 +338,10 @@ const handleSalvarEdicao = async (e: React.FormEvent) => {
             >
               {loading ? 'Salvando...' : 'Salvar Prato no Banco 🚀'}
             </button>
-
           </form>
         </section>
 
-        {/* LISTAGEM DOS PRATOS NO BANCO */}
+        {/* LISTAGEM DOS PRATOS */}
         <section style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', border: '1px solid #334155' }}>
           <h2 style={{ fontSize: '1.2rem', color: '#f59e0b', marginTop: 0, marginBottom: '1rem' }}>
             📋 Pratos Cadastrados ({produtos.length})
@@ -288,57 +357,54 @@ const handleSalvarEdicao = async (e: React.FormEvent) => {
                 <div
                   key={prod.id}
                   style={{
+                    backgroundColor: '#1e293b',
+                    borderRadius: '8px',
+                    padding: '1rem 1.2rem',
+                    marginBottom: '0.8rem',
+                    border: '1px solid #334155',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    backgroundColor: '#0f172a',
-                    padding: '0.8rem 1rem',
-                    borderRadius: '8px',
-                    border: '1px solid #334155'
+                    gap: '1rem'
                   }}
                 >
                   <div>
-                    <span style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase' }}>
                       {prod.categoria}
                     </span>
-                    <h3 style={{ margin: '0.2rem 0', fontSize: '1rem' }}>{prod.nome}</h3>
-                    <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    <h3 style={{ margin: '0.2rem 0', fontSize: '1.05rem', color: '#f8fafc' }}>
+                      {prod.nome}
+                    </h3>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#38bdf8' }}>
                       R$ {Number(prod.preco).toFixed(2)}
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => abrirModalDeletar(prod.id)}
-                    style={{
-                      backgroundColor: '#ef4444',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '0.5rem 0.8rem',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    🗑️ Excluir
-                  </button>
-                  <button
-   type="button"
-   onClick={() => setProdutoEditando(prod)}
-   style={{
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    border: 'none',
-    padding: '0.4rem 0.8rem',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    marginRight: '0.5rem'
-    }}
-   >
-     ✏️ Editar
-    </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => abrirModalDeletar(prod.id)}
+                      style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '0.5rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                    >
+                      🗑️ Excluir
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => alternarDisponibilidade(prod.id, (prod as any).disponivel !== false)}
+                      style={{ backgroundColor: (prod as any).disponivel === false ? '#64748b' : '#10b981', color: '#fff', border: 'none', padding: '0.5rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                    >
+                      {(prod as any).disponivel === false ? '🔴 Pausado' : '🟢 Ativo'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setProdutoEditando(prod)}
+                      style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '0.5rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                    >
+                      ✏️ Editar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -347,177 +413,55 @@ const handleSalvarEdicao = async (e: React.FormEvent) => {
 
       </main>
 
-
-      {/* Modal de Confirmação de Exclusão */}
-{modalAberto && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: '#1e293b',
-      border: '1px solid #334155',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      maxWidth: '400px',
-      width: '90%',
-      textAlign: 'center',
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
-    }}>
-      <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.25rem' }}>
-        Confirmar Exclusão
-      </h3>
-      <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-        Tem certeza que deseja excluir este prato? Esta ação não poderá ser desfeita.
-      </p>
-      
-      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-        <button
-          type="button"
-          onClick={() => setModalAberto(false)}
-          style={{
-            backgroundColor: '#475569',
-            color: '#fff',
-            border: 'none',
-            padding: '0.6rem 1.2rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={confirmarDeletar}
-          style={{
-            backgroundColor: '#ef4444',
-            color: '#fff',
-            border: 'none',
-            padding: '0.6rem 1.2rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          Sim, excluir
-        </button>
-      </div>
-    </div>
-  </div>
-
-  
-)}
-
-{/* Modal de Edição de Prato */}
-{produtoEditando && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: '#1e293b',
-      border: '1px solid #334155',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      maxWidth: '500px',
-      width: '90%',
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
-    }}>
-      <h3 style={{ margin: '0 0 1rem 0', color: '#f8fafc', fontSize: '1.25rem', textAlign: 'center' }}>
-        ✏️ Editar Prato
-      </h3>
-
-      <form onSubmit={handleSalvarEdicao} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nome:</label>
-          <input
-            type="text"
-            value={produtoEditando.nome}
-            onChange={(e) => setProdutoEditando({ ...produtoEditando, nome: e.target.value })}
-            required
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
-          />
+      {/* MODAL DE DELEÇÃO */}
+      {modalAberto && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '1.5rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc' }}>Confirmar Exclusão</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '1.5rem' }}>Tem certeza que deseja excluir este prato?</p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button type="button" onClick={() => setModalAberto(false)} style={{ backgroundColor: '#475569', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+              <button type="button" onClick={confirmarDeletar} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Sim, excluir</button>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Categoria:</label>
-          <input
-            type="text"
-            value={produtoEditando.categoria}
-            onChange={(e) => setProdutoEditando({ ...produtoEditando, categoria: e.target.value })}
-            required
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
-          />
+      {/* MODAL DE EDIÇÃO */}
+      {produtoEditando && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '1.5rem', maxWidth: '500px', width: '90%' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#f8fafc', textAlign: 'center' }}>✏️ Editar Prato</h3>
+            <form onSubmit={handleSalvarEdicao} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nome:</label>
+                <input type="text" value={produtoEditando.nome} onChange={(e) => setProdutoEditando({ ...produtoEditando, nome: e.target.value })} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Categoria:</label>
+                <input type="text" value={produtoEditando.categoria} onChange={(e) => setProdutoEditando({ ...produtoEditando, categoria: e.target.value })} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Preço (R$):</label>
+                <input type="number" step="0.01" value={produtoEditando.preco} onChange={(e) => setProdutoEditando({ ...produtoEditando, preco: e.target.value })} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>URL da Imagem:</label>
+                <input type="text" value={produtoEditando.imagem_url || ''} onChange={(e) => setProdutoEditando({ ...produtoEditando, imagem_url: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Descrição:</label>
+                <textarea value={produtoEditando.descricao || ''} onChange={(e) => setProdutoEditando({ ...produtoEditando, descricao: e.target.value })} rows={3} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setProdutoEditando(null)} style={{ backgroundColor: '#475569', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+                <button type="submit" style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Alterações</button>
+              </div>
+            </form>
+          </div>
         </div>
+      )}
 
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Preço (R$):</label>
-          <input
-            type="number"
-            step="0.01"
-            value={produtoEditando.preco}
-            onChange={(e) => setProdutoEditando({ ...produtoEditando, preco: e.target.value })}
-            required
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>URL da Imagem:</label>
-          <input
-            type="text"
-            value={produtoEditando.imagem_url || ''}
-            onChange={(e) => setProdutoEditando({ ...produtoEditando, imagem_url: e.target.value })}
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Descrição:</label>
-          <textarea
-            value={produtoEditando.descricao || ''}
-            onChange={(e) => setProdutoEditando({ ...produtoEditando, descricao: e.target.value })}
-            rows={3}
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button
-            type="button"
-            onClick={() => setProdutoEditando(null)}
-            style={{ backgroundColor: '#475569', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            Salvar Alterações
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
     </div>
   );
 }
