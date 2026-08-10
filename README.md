@@ -70,15 +70,3 @@ Como a aplicação ainda está em fase de desenvolvimento e não foi implantada 
 4. Abra o seu navegador e acesse:
    * **Cardápio:** `http://localhost:3000`
    * **Login Admin:** `http://localhost:3000/login`
-
----
-
-## 🎨 Próximos Passos (Roadmap)
-- [ ] Implementar carrinho de compras persistente
-- [ ] Integração de pedidos diretos para o WhatsApp da lanchonete
-- [ ] Filtro rápido por categorias no cardápio do cliente
-- [ ] Deploy em produção (Vercel para o Front-end e Render/Supabase para o Back-end)
-
----
-
-Desenvolvido por **L.** 🚀
