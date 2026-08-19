@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 5000;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   // Se for banco em nuvem (Render, Supabase, Neon), ative a linha abaixo em produção:
-  // ssl: { rejectUnauthorized: false }
+   ssl: { rejectUnauthorized: false }
 });
 
 pool.on('connect', () => {
@@ -44,10 +44,9 @@ const upload = multer({ storage });
 
 // Middlewares Globais
 app.use(cors({
-  origin: 'http://localhost:3000', // Endereço do Front-end Next.js
-  credentials: true                // Permite transporte de cookies
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
 }));
-
 app.use(express.json());
 app.use(cookieParser());
 
@@ -99,11 +98,12 @@ app.post('/api/login', (req, res) => {
 
   const token = jwt.sign({ role: 'admin' }, jwtSecret, { expiresIn: '8h' });
 
-  res.cookie('admin_token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  });
+res.cookie('token', token, {
+  httpOnly: true,
+  secure: true,        // Obrigatório para HTTPS no Render
+  sameSite: 'none',    // Permite o cookie entre Vercel e Render
+  maxAge: 86400000     // 24 horas
+});
 
   return res.status(200).json({ ok: true, message: 'Autenticado com sucesso!' });
 });

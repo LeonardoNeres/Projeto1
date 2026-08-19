@@ -15,7 +15,7 @@ export default function LoginPage() {
 
     try {
       // Envia a senha para o backend validar
-      const res = await fetch('http://localhost:5000/api/login', {
+      const res = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // ⚠️ OBRIGATÓRIO: Permite receber o Cookie do servidor
