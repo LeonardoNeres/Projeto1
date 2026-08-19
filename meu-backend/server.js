@@ -46,6 +46,7 @@ const upload = multer({ storage });
 app.use(cors({ origin: 'https://devburguer-tau.vercel.app', credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.options('*', cors());
 
 // 🌐 Servir arquivos estáticos da pasta /uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
