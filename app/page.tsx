@@ -50,7 +50,7 @@ export default function CardapioPublicoPage() {
   useEffect(() => {
     async function carregarProdutos() {
       try {
-        const res = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/produtos');
+        const res = await fetch('https://devburguer-api-7ld2.onrender.com/api/produtos');
         if (res.ok) {
           const dados = await res.json();
 // Exibe apenas os produtos que NÃO estão pausados (disponivel !== false)

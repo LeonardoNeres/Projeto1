@@ -41,7 +41,7 @@ export default function AdminPage() {
   useEffect(() => {
     const checarAutenticacao = async () => {
       try {
-        const res = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/auth/check', {
+        const res = await fetch('https://devburguer-api-7ld2.onrender.com/api/auth/check', {
           method: 'GET',
           credentials: 'include',
         });
@@ -62,7 +62,7 @@ export default function AdminPage() {
   // 2. Carregar produtos do banco de dados (Apenas se autorizado)
   const carregarProdutos = async () => {
     try {
-      const res = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/produtos');
+      const res = await fetch('https://devburguer-api-7ld2.onrender.com/api/produtos');
       if (res.ok) {
         const dados = await res.json();
         setProdutos(dados);
@@ -90,7 +90,7 @@ export default function AdminPage() {
     formData.append('imagem', file);
 
     try {
-      const res = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/upload', {
+      const res = await fetch('https://devburguer-api-7ld2.onrender.com/api/upload', {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -120,7 +120,7 @@ export default function AdminPage() {
     formData.append('imagem', file);
 
     try {
-      const res = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/upload', {
+      const res = await fetch('https://devburguer-api-7ld2.onrender.com/api/upload', {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -146,7 +146,7 @@ export default function AdminPage() {
     setLoading(true);
 
     try {
-      const resposta = await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/produtos', {
+      const resposta = await fetch('https://devburguer-api-7ld2.onrender.com/api/produtos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -188,7 +188,7 @@ export default function AdminPage() {
     if (!idParaDeletar) return;
 
     try {
-      const resposta = await fetch(`[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/produtos/${idParaDeletar}`, {
+      const resposta = await fetch(`https://devburguer-api-7ld2.onrender.com/api/produtos/${idParaDeletar}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -214,7 +214,7 @@ export default function AdminPage() {
     if (!produtoEditando) return;
 
     try {
-      const resposta = await fetch(`[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/produtos/${produtoEditando.id}`, {
+      const resposta = await fetch(`https://devburguer-api-7ld2.onrender.com/api/produtos/${produtoEditando.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -237,7 +237,7 @@ export default function AdminPage() {
   // 6. Alternar Disponibilidade (PATCH Protegido)
   const alternarDisponibilidade = async (id: number, disponivelAtual: boolean) => {
     try {
-      const resposta = await fetch(`[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/produtos/${id}/disponibilidade`, {
+      const resposta = await fetch(`https://devburguer-api-7ld2.onrender.com/api/produtos/${id}/disponibilidade`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -272,7 +272,7 @@ export default function AdminPage() {
           <button
             type="button"
             onClick={async () => {
-              await fetch('[https://devburguer-api-7ld2.onrender.com](https://devburguer-api-7ld2.onrender.com)/api/logout', {
+              await fetch('https://devburguer-api-7ld2.onrender.com/api/logout', {
                 method: 'POST',
                 credentials: 'include',
               });
