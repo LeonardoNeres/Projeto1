@@ -11,11 +11,34 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Lista de origens permitidas
+const allowedOrigins = [
+  'https://devburguer-tau.vercel.app',
+  'http://localhost:3000'
+];
+
+// Configuração do CORS (Corrigido para aceitar credenciais/cookies)
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permite requisições sem origem (como apps mobile ou curl) e domínios da lista
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Libera outras variações da Vercel
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+app.use(express.json());
+app.use(cookieParser());
+
 // Configuração do PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Se for banco em nuvem (Render, Supabase, Neon), ative a linha abaixo em produção:
-   ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false }
 });
 
 pool.on('connect', () => {
@@ -26,14 +49,12 @@ pool.on('connect', () => {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, 'uploads');
-    // Cria a pasta /uploads se ela ainda não existir
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    // Nome do arquivo: imagem-TIMESTAMP-NUMEROALEATORIO.extensao
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
     cb(null, 'imagem-' + uniqueSuffix + ext);
@@ -41,14 +62,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-// Middlewares Globais
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
-app.use(express.json());
-app.use(cookieParser());
 
 // 🌐 Servir arquivos estáticos da pasta /uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -98,12 +111,12 @@ app.post('/api/login', (req, res) => {
 
   const token = jwt.sign({ role: 'admin' }, jwtSecret, { expiresIn: '8h' });
 
-res.cookie('token', token, {
-  httpOnly: true,
-  secure: true,        // Obrigatório para HTTPS no Render
-  sameSite: 'none',    // Permite o cookie entre Vercel e Render
-  maxAge: 86400000     // 24 horas
-});
+  res.cookie('admin_token', token, {
+    httpOnly: true,
+    secure: true,        // Obrigatório para HTTPS na Vercel / Render
+    sameSite: 'none',    // Necessário para compartilhar cookies entre origens diferentes
+    maxAge: 86400000     // 24 horas
+  });
 
   return res.status(200).json({ ok: true, message: 'Autenticado com sucesso!' });
 });
@@ -118,8 +131,10 @@ app.post('/api/upload', autenticarAdmin, upload.single('imagem'), (req, res) => 
     return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
   }
 
-  // Gera e retorna a URL acessível da imagem
-  const imageUrl = `http://localhost:5000/uploads/${req.file.filename}`;
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+  
   return res.status(200).json({ url: imageUrl });
 });
 
@@ -130,7 +145,11 @@ app.get('/api/auth/check', autenticarAdmin, (req, res) => {
 
 // 🔴 Logout
 app.post('/api/logout', (req, res) => {
-  res.clearCookie('admin_token');
+  res.clearCookie('admin_token', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+  });
   return res.json({ message: 'Sessão encerrada com sucesso!' });
 });
 
